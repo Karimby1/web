@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Dashboards · PFE{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Dashboards</h2>
+  <p class="sub">Access your analytics and reports.</p>
+
+  <div style="display:flex; gap:10px; margin-top:10px;">
+    <a class="btn" href="{{ url_for('dashboards.powerbi') }}">Open Power BI</a>
+    <a class="btn secondary" href="#">(Placeholder) Another Report</a>
+  </div>
+
+  <div style="margin-top:16px; padding:14px; border:1px dashed rgba(99,102,241,.35); border-radius:12px;">
+    <em>Connect your Power BI publish link in <code>dashboards/routes.py</code> → <code>powerbi_url</code>.</em>
+  </div>
+</div>
+{% endblock %}

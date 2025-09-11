@@ -1,0 +1,33 @@
+  {% extends "base.html" %}
+  {% block title %}Login · PFE{% endblock %}
+  {% block content %}
+  <div class="card" style="max-width:480px; margin:0 auto;">
+    <h2>Login</h2>
+    <p class="sub">Sign in to access your dashboards</p>
+
+    {# show flashed errors/success #}
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}
+        <ul class="flashes">
+          {% for cat, msg in msgs %}
+            <li class="flash {{ cat }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('auth.login') }}" style="margin-top:12px;">
+      <div>
+        <label>Email</label>
+        <input type="email" name="email" required value="{{ request.form.get('email','') }}">
+      </div>
+      <div style="margin-top:10px">
+        <label>Password</label>
+        <input type="password" name="password" required>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn" type="submit">Sign in</button>
+      </div>
+    </form>
+  </div>
+  {% endblock %}

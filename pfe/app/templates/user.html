@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}My Profile · PFE{% endblock %}
+{% block content %}
+<div class="grid cols-2">
+  <div class="card">
+    <h2>My Profile</h2>
+    <p class="sub">Your account details</p>
+    <div class="kv" style="margin-top:10px">
+      <div><strong>Email</strong></div><div>{{ user.email }}</div>
+      <div><strong>Roles</strong></div>
+      <div>{{ user.roles | map(attribute='name') | join(', ') }}</div>
+      <div><strong>Joined</strong></div>
+      <div>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '—' }}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Quick Actions</h3>
+    <p class="sub">Things you can do</p>
+    <div style="display:flex; gap:10px; margin-top:10px">
+      <a class="btn" href="{{ url_for('dashboards.view') }}">Open Dashboards</a>
+      {% if is_admin() %}
+        <a class="btn secondary" href="{{ url_for('admin.panel') }}">Admin Panel</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
