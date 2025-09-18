@@ -14,6 +14,9 @@ class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(32), unique=True, nullable=False)
 
+    def __repr__(self):
+        return f"<Role {self.name}>"
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -30,3 +33,11 @@ class User(UserMixin, db.Model):
 
     def has_role(self, role_name: str) -> bool:
         return any(r.name == role_name for r in self.roles)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "roles": [r.name for r in self.roles],
+            "created_at": self.created_at.isoformat(),
+        }

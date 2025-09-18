@@ -12,3 +12,7 @@ class Config:
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+# config.py
+class Config:
+    # ... tes autres configs
+    POWERBI_EMBED_URL =" https://app.powerbi.com/reportEmbed?reportId=3013134f-5f30-4f7f-81ad-14f4faa1b04e&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730"

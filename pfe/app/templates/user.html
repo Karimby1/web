@@ -18,7 +18,7 @@
     <h3>Quick Actions</h3>
     <p class="sub">Things you can do</p>
     <div style="display:flex; gap:10px; margin-top:10px">
-      <a class="btn" href="{{ url_for('dashboards.view') }}">Open Dashboards</a>
+      <a class="btn" href="{{ url_for('dash.view') }}">Open Dashboards</a>
       {% if is_admin() %}
         <a class="btn secondary" href="{{ url_for('admin.panel') }}">Admin Panel</a>
       {% endif %}

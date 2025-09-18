@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Prediction · PFE{% endblock %}
+{% block content %}
+
+<section class="pred-wrap">
+  <div class="card pred-card">
+    <h2 style="margin:0 0 6px 0;">Make a Prediction</h2>
+    <p class="sub" style="margin:0 0 16px 0;">Enter the product and select month & year</p>
+
+    <form id="predForm" onsubmit="return false;">
+      <div class="row3">
+        <div class="field">
+          <label for="f_product">Product</label>
+          <input id="f_product" class="input" type="text" placeholder="product name" required />
+        </div>
+
+        <div class="field">
+          <label for="f_month">Month <span id="mval" class="badge">1</span></label>
+          <input id="f_month" type="range" min="1" max="12" value="1" class="slider" />
+        </div>
+
+        <div class="field">
+          <label for="f_year">Year <span id="yval" class="badge">2025</span></label>
+          <input id="f_year" type="range" class="slider" />
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button class="btn" id="submitPred" type="button">Make Prediction</button>
+        <a class="btn secondary" href="{{ url_for('dash.view') }}">Cancel</a>
+      </div>
+      <p id="msg" class="sub" style="margin-top:10px;"></p>
+    </form>
+
+    <div id="predResult" class="result" style="display:none; margin-top:16px;">
+      <h3 style="margin:0 0 8px 0;">Result</h3>
+
+      <!-- KPI Retail only -->
+      <div id="kpis" class="kpi-row" style="display:none; gap:12px; margin-top:6px;">
+        <div class="kpi-card">
+          <div class="kpi-title">This Year</div>
+          <div id="kpi-this" class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Next Year</div>
+          <div id="kpi-next" class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Year +2</div>
+          <div id="kpi-plus2" class="kpi-value">—</div>
+        </div>
+      </div>
+
+      <!-- Tableau des prévisions: Year | Month | Retail -->
+      <div id="tableBox" style="display:none; margin-top:12px;">
+        <table class="tbl" id="predTable">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Month</th>
+              <th>Retail</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- (supprimé) liens de téléchargement -->
+    </div>
+  </div>
+</section>
+
+<style>
+  .pred-wrap{
+    min-height: 70vh;
+    display:flex; align-items:center; justify-content:center;
+    padding: 32px 16px;
+  }
+  .pred-card{ width: min(900px, 96vw); }
+  .slider{ width:100%; }
+
+  .badge{
+    display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px;
+    background: rgba(255,255,255,.15);
+    color:#fff; font-size:12px;
+  }
+
+  .row3{
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px; align-items: end;
+  }
+  .field{ min-width: 0; }
+  .field label{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:6px;
+  }
+  .field .input, .field .slider{ width:100%; }
+
+  /* KPI cards */
+  .kpi-row{ display:flex; flex-wrap:wrap; }
+  .kpi-card{
+    flex:1 1 180px;
+    background:#0b1224; border:1px solid rgba(99,102,241,.25);
+    border-radius:12px; padding:12px 14px;
+  }
+  .kpi-title{ font-size:12px; opacity:.8; margin-bottom:6px; }
+  .kpi-value{ font-size:24px; font-weight:700; }
+
+  /* Table */
+  .tbl { width:100%; border-collapse: collapse; }
+  .tbl th, .tbl td {
+    padding:10px; border:1px solid rgba(99,102,241,.25); text-align:left;
+  }
+  .tbl thead th { background: rgba(99,102,241,.15); }
+
+  @media (max-width: 900px){
+    .row3{ grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+const API = "/dashboards/prediction"; // base endpoint
+const f_product = document.getElementById('f_product');
+const f_month   = document.getElementById('f_month');
+const f_year    = document.getElementById('f_year');
+const mval      = document.getElementById('mval');
+const yval      = document.getElementById('yval');
+const submitBtn = document.getElementById('submitPred');
+const msg       = document.getElementById('msg');
+const resultDiv = document.getElementById('predResult');
+
+const kpisWrap  = document.getElementById('kpis');
+const kpiThis   = document.getElementById('kpi-this');
+const kpiNext   = document.getElementById('kpi-next');
+const kpiPlus2  = document.getElementById('kpi-plus2');
+
+const tableBox  = document.getElementById('tableBox');
+const tbody     = document.querySelector('#predTable tbody');
+
+// === bornes pour YEAR ===
+const currentYear = new Date().getFullYear();
+f_year.min = currentYear;
+f_year.max = currentYear + 2;     // 3 années possibles: année courante -> +2
+f_year.value = currentYear;
+yval.textContent = f_year.value;
+
+// sliders display
+mval.textContent = f_month.value;
+f_month.addEventListener('input', () => mval.textContent = f_month.value);
+f_year.addEventListener('input',  () => yval.textContent = f_year.value);
+
+// utils
+function setBusy(b){
+  submitBtn.disabled = b;
+  submitBtn.style.opacity = b ? .7 : 1;
+  submitBtn.style.pointerEvents = b ? 'none' : 'auto';
+}
+const fmtNum = v => (v == null ? '—' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}));
+
+// rendu Retail-only
+function renderRetailTable(rows){
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.year}</td>
+      <td>${r.month}</td>
+      <td>${fmtNum(r.retail)}</td>
+    </tr>
+  `).join('');
+  tableBox.style.display = rows.length ? 'block' : 'none';
+}
+
+// KPI = retail des 3 premières années (si dispo)
+function renderRetailKpis(rows, startYear){
+  const y0 = rows.find(r => r.year === startYear)?.retail ?? null;
+  const y1 = rows.find(r => r.year === startYear + 1)?.retail ?? null;
+  const y2 = rows.find(r => r.year === startYear + 2)?.retail ?? null;
+  kpiThis.textContent  = fmtNum(y0);
+  kpiNext.textContent  = fmtNum(y1);
+  kpiPlus2.textContent = fmtNum(y2);
+  kpisWrap.style.display = 'flex';
+}
+
+// submit
+submitBtn.addEventListener('click', async () => {
+  const product = f_product.value.trim();
+  const month   = Number(f_month.value);
+  const year    = Number(f_year.value);
+
+  if (!product) { msg.textContent = "Product is required."; return; }
+
+  try {
+    msg.textContent = "Running prediction…";
+    setBusy(true);
+
+    const res = await fetch(`${API}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ product, month, year })
+    });
+
+    const data = await res.json().catch(() => ({ error: "Invalid server response" }));
+    if (!res.ok || data.error) {
+      msg.textContent = data.error || "Prediction failed.";
+      resultDiv.style.display = 'none';
+      tableBox.style.display = 'none';
+      kpisWrap.style.display  = 'none';
+      tbody.innerHTML = "";
+      return;
+    }
+
+    msg.textContent = "Done.";
+    resultDiv.style.display = 'block';
+
+    const rows = (data.result && data.result.table) || [];
+    renderRetailTable(rows);
+
+    // KPI: si le back ne renvoie plus de kpis, on dérive depuis rows (retail only)
+    const startYear = rows.length ? Math.min(...rows.map(r => r.year)) : year;
+    renderRetailKpis(rows, startYear);
+
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    msg.textContent = "Network error.";
+    resultDiv.style.display = 'none';
+    tableBox.style.display = 'none';
+    kpisWrap.style.display  = 'none';
+    tbody.innerHTML = "";
+  } finally {
+    setBusy(false);
+  }
+});
+</script>
+
+{% endblock %}

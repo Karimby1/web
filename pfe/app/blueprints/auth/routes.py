@@ -1,3 +1,4 @@
+# app/blueprints/auth/routes.py
 from urllib.parse import urlparse, urljoin
 
 from flask import (
@@ -10,11 +11,12 @@ from flask import (
     current_app,
 )
 from flask_login import login_user, logout_user, current_user
-from sqlalchemy import func  # <-- add this
+from sqlalchemy import func
+from wtforms import Form, StringField, PasswordField
+from wtforms.validators import InputRequired, Email, Length, EqualTo
+
 from ...extensions import db
 from ...models.user import User, Role
-from wtforms import Form, StringField, PasswordField
-from wtforms.validators import InputRequired, Email, Length
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -42,22 +44,16 @@ class RegisterForm(Form):
     )
     password = PasswordField(
         "Password",
-        [
-            InputRequired(),
-            Length(min=6, message="Password must be at least 6 characters"),
-        ],
+        [InputRequired(), Length(min=6, message="Password must be at least 6 characters")],
     )
-    confirm = PasswordField("Confirm Password")
+    confirm = PasswordField(
+        "Confirm Password",
+        [InputRequired(), EqualTo("password", message="Passwords must match")],
+    )
 
 # --- Routes ---
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    # Already logged in → route by role
-    if current_user.is_authenticated:
-        return redirect(
-            url_for("admin.panel") if current_user.has_role("admin") else url_for("dashboards.view")
-        )
-
     form = LoginForm(request.form)
 
     if request.method == "POST":
@@ -75,7 +71,7 @@ def login():
 
         if ok:
             email = (form.email.data or "").strip().lower()
-            # case-insensitive lookup
+            # lookup insensible à la casse
             user = User.query.filter(func.lower(User.email) == email).first()
             pwd_ok = bool(user and user.check_password(form.password.data))
 
@@ -85,14 +81,15 @@ def login():
                 pass
 
             if pwd_ok:
+                # remplace l’utilisateur courant s’il y en a déjà un
                 login_user(user, remember=True)
 
-                # Honor ?next= if safe; else role-based landing
+                # ?next= prioritaire si sûr, sinon redirection par rôle
                 next_url = request.args.get("next")
                 if next_url and _is_safe_url(next_url):
                     target = next_url
                 else:
-                    target = url_for("admin.panel") if user.has_role("admin") else url_for("dashboards.view")
+                    target = url_for("admin.panel") if user.has_role("admin") else url_for("dash.view")
 
                 try:
                     current_app.logger.debug("redirect -> %s", target)
@@ -106,12 +103,14 @@ def login():
             current_app.logger.debug("FORM ERRORS = %s", getattr(form, "errors", {}))
             flash("Invalid form data", "danger")
 
+    # IMPORTANT : pas de redirection automatique même si déjà connecté
     return render_template("login.html", form=form)
+
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboards.view"))
+        return redirect(url_for("dash.view"))
 
     form = RegisterForm(request.form)
     if request.method == "POST" and form.validate():

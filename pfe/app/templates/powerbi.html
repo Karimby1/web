@@ -1,15 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Power BI · PFE{% endblock %}
 {% block content %}
+
 <div class="card">
   <h2>Power BI</h2>
   <p class="sub">Embedded report</p>
-  <div style="margin-top:10px">
-    <iframe
-      width="100%" height="720"
-      src="{{ powerbi_url }}"
-      frameborder="0" allowfullscreen="true">
-    </iframe>
-  </div>
+
+  {% if powerbi_url %}
+    <div class="bi-wrap" style="margin-top:12px;">
+      <iframe
+        title="Power BI Report"
+        src="{{ powerbi_url | safe }}"
+        frameborder="0"
+        allowfullscreen="true"
+        loading="lazy">
+      </iframe>
+    </div>
+
+    <div style="margin-top:10px;">
+      <a class="btn secondary" href="{{ powerbi_url }}" target="_blank" rel="noopener">Open in new tab</a>
+    </div>
+  {% else %}
+    <div class="flash danger" style="margin-top:12px;">
+      No Power BI URL configured. Set <code>POWERBI_EMBED_URL</code> in <code>config.py</code>
+      (or pass <code>powerbi_url</code> from the route).
+    </div>
+  {% endif %}
 </div>
+
+<style>
+  /* Responsive 16:9 container */
+  .bi-wrap{ position:relative; width:100%; padding-top:56.25%; }
+  .bi-wrap iframe{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    border:0; border-radius:12px;
+  }
+</style>
+
 {% endblock %}

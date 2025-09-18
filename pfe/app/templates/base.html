@@ -11,12 +11,13 @@
   <header class="appbar">
     <div class="nav">
       <div class="brand">
-        <span class="badge">PFE</span>
-        <span>PFE Portal</span>
-      </div>
+  <img class="brand-logo" src="{{ url_for('static', filename='img/Logo-CMR---Web (2).png') }}" alt="CMR">
+  <span class="brand-title">CMR Analytics</span>
+</div>
+
       <nav style="margin-left:auto; display:flex; gap:6px;">
         {% if current_user.is_authenticated %}
-          <a class="{{ is_active('/dashboards') }}" href="{{ url_for('dashboards.view') }}">Dashboards</a>
+          <a class="nav-link {{ is_active('/dashboards') }}" href="{{ url_for('dash.view') }}">Dashboards</a>
           <a class="{{ is_active('/user') }}" href="{{ url_for('user.profile') }}">My Profile</a>
           {% if is_admin() %}
           <a class="{{ is_active('/admin') }}" href="{{ url_for('admin.panel') }}">Admin</a>

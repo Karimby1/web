@@ -1,32 +1,194 @@
 {% extends "base.html" %}
 {% block title %}Admin · PFE{% endblock %}
 {% block content %}
+
 <div class="grid cols-2">
-  <div class="card">
-    <h2>Admin Panel</h2>
-    <p class="sub">Administrative tools</p>
-    <div style="display:flex; gap:10px; margin-top:10px;">
-      <a class="btn" href="{{ url_for('dashboards.view') }}">See Dashboards</a>
-      <button class="btn secondary" id="predict">Make Prediction (Placeholder)</button>
-    </div>
-    <pre id="out" style="margin-top:12px; background:#061023; padding:12px; border-radius:10px; border:1px solid rgba(99,102,241,.2)"></pre>
+  
+
+ 
+</div>
+
+<!-- ===== User Management (liste) ===== -->
+<div class="card" id="listCard" style="margin-top:18px;">
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <h2 style="margin:0;">User Management</h2>
+    <button class="btn" id="addUserBtn">Add User</button>
   </div>
 
-  <div class="card">
-    <h3>System</h3>
-    <table class="table">
-      <tr><th>Environment</th><td>Development</td></tr>
-      <tr><th>Auth</th><td>Flask-Login (session)</td></tr>
-      <tr><th>DB</th><td>MySQL (XAMPP)</td></tr>
-    </table>
-  </div>
+  <table class="table" id="usersTable" style="margin-top:12px;">  
+    <thead>
+      <tr><th>Email</th><th>Role</th><th>Actions</th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- ===== Add User Form (card) ===== -->
+<div class="card" id="formCard" style="margin-top:18px; display:none;">
+  <h2 style="margin-top:0;">Add User</h2>
+  <form id="userForm" onsubmit="return false;">
+    <div class="grid cols-2" style="gap:12px;">
+      <div>
+        <label for="f_email">Email</label>
+        <input id="f_email"
+       class="input"
+       type="email"
+       required
+       autocomplete="email"
+       inputmode="email"
+       pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
+       title="Veuillez saisir une adresse Gmail (ex: nom@gmail.com)"
+       placeholder="nom@gmail.com" />
+
+      </div>
+      <div>
+        <label for="f_password">Password</label>
+        <input id="f_password" type="password" required minlength="6" class="input" placeholder="min 6 caractères" />
+      </div>
+      <div>
+        <label for="f_role">Role</label>
+        <select id="f_role" class="select-pill">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn" id="submitUser">Create</button>
+      <button class="btn secondary" id="cancelUser" type="button">Cancel</button>
+    </div>
+    <p id="formMsg" class="sub" style="margin-top:10px;"></p>
+  </form>
 </div>
 
 <script>
-document.getElementById("predict").onclick = async () => {
-  const res = await fetch("/admin/predict", {method:"POST"});
-  const data = await res.json();
-  document.getElementById("out").textContent = JSON.stringify(data, null, 2);
-};
+
+// ---------- Users CRUD (frontend) ----------
+const API = "{{ url_for('admin.panel') }}".replace(/\/$/, ""); // "/admin"
+
+const listCard  = document.getElementById('listCard');
+const formCard  = document.getElementById('formCard');
+const tbody     = document.getElementById('tbody');
+const addBtn    = document.getElementById('addUserBtn');
+const submitBtn = document.getElementById('submitUser');
+const cancelBtn = document.getElementById('cancelUser');
+
+const f_email    = document.getElementById('f_email');
+const f_password = document.getElementById('f_password');
+const f_role     = document.getElementById('f_role');
+const formMsg    = document.getElementById('formMsg');
+
+let formMode = "create";     // "create" | "edit"
+let currentEditId = null;
+
+function showForm(mode="create", user=null) {
+  formMode = mode;
+  currentEditId = user ? user.id : null;
+
+  listCard.style.display = 'none';
+  formCard.style.display = 'block';
+  formMsg.textContent = '';
+
+  if (mode === "create") {
+    document.querySelector('#formCard h2').textContent = "Add User";
+    submitBtn.textContent = "Create";
+    f_email.value = "";
+    f_password.value = "";
+    f_role.value = "user";
+  } else {
+    document.querySelector('#formCard h2').textContent = "Edit User";
+    submitBtn.textContent = "Save";
+    f_email.value = user.email || "";
+    f_password.value = ""; // vide = ne pas changer
+    f_role.value = (user.roles && user.roles[0]) ? user.roles[0] : "user";
+  }
+  f_email.focus();
+}
+
+function showList() {
+  formCard.style.display = 'none';
+  listCard.style.display = 'block';
+}
+
+async function loadUsers() {
+  const res = await fetch(`${API}/users`);
+  const users = await res.json();
+  tbody.innerHTML = users.map(u => `
+    <tr data-id="${u.id}">
+      <td>${u.email}</td>
+      <td><span class="tag">${(u.roles && u.roles[0]) ? u.roles[0] : ''}</span></td>
+      <td>
+  <button class="btn edit">Edit</button>
+  <button class="btn secondary delete" style="margin-left:8px;">Delete</button>
+</td>
+    </tr>`).join('');
+}
+
+async function submitForm() {
+  const email = f_email.value.trim();
+  const role  = f_role.value;
+  const pwd   = f_password.value; // peut être vide en edit
+
+  if (!/^[a-zA-Z0-9._%+-]+@(gmail\.com|googlemail\.com)$/.test(email)) {
+    formMsg.textContent = "Veuillez saisir une adresse Gmail (ex: nom@gmail.com)";
+    return;
+  }
+  if (formMode === "create" && !pwd) { formMsg.textContent = "Mot de passe requis."; return; }
+
+  let url = `${API}/users`;
+  let method = "POST";
+  const payload = { email, role };
+  if (formMode === "create") {
+    payload.password = pwd; // requis
+  } else {
+    url = `${API}/users/${currentEditId}`;
+    method = "PUT";
+    if (pwd) payload.password = pwd; // seulement si rempli, sinon on ne change pas
+  }
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({error:"Erreur"}));
+    formMsg.textContent = e.error || "Erreur";
+    return;
+  }
+
+  await loadUsers();
+  showList();
+}
+
+async function deleteUser(id) {
+  if (!confirm("Supprimer cet utilisateur ?")) return;
+  await fetch(`${API}/users/${id}`, { method: "DELETE" });
+  loadUsers();
+}
+
+tbody.addEventListener('click', (e) => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const id = Number(tr.dataset.id);
+  if (e.target.classList.contains('edit')) {
+    const email = tr.children[0].textContent.trim();
+    const role  = tr.children[1].innerText.trim();
+    showForm("edit", { id, email, roles: [role] });
+  }
+  if (e.target.classList.contains('delete')) {
+    deleteUser(id);
+  }
+  e.preventDefault();
+});
+
+addBtn.addEventListener('click', () => showForm("create"));
+submitBtn.addEventListener('click', submitForm);
+cancelBtn.addEventListener('click', showList);
+
+loadUsers();
+</script>
+
 </script>
 {% endblock %}
